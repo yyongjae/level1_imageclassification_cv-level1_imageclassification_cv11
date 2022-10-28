@@ -6,101 +6,101 @@ import torchvision.models as models
 
 
 class BaseModel(nn.Module):
-    def __init__(self, num_classes, name):
+    def __init__(self, num_classes, model):
         super().__init__()
 
-        if name == 'efficientnet_b7':
+        if model == 'efficientnet_b7':
             self.backbone = models.efficientnet_b7(pretrained=True)
             
-        elif name == 'resnet50':
+        elif model == 'resnet50':
             self.backbone = models.resnet50(pretrained=True)
 
-        elif name == 'densenet121':
+        elif model == 'densenet121':
             self.backbone = models.densenet121(pretrained=True)
             
-        elif name == 'densenet169':
+        elif model == 'densenet169':
             self.backbone = models.densenet169(pretrained=True)
         
-        elif name == 'swin_t':
+        elif model == 'swin_t':
             self.backbone = models.swin_t(weights='IMAGENET1K_V1')
         
-        elif name == 'vit_l_16':
+        elif model == 'vit_l_16':
             self.backbone = models.vit_l_16(pretrained=True)
         
-        elif name == 'mobilenet_v2':
+        elif model == 'mobilenet_v2':
             self.backbone = models.mobilenet_v2(pretrained=True)
         
-        elif name == 'squeezenet1_1':
+        elif model == 'squeezenet1_1':
             self.backbone = models.squeezenet1_1(pretrained=True)
         
-        elif name == 'shufflenet_v2_x2_0':
+        elif model == 'shufflenet_v2_x2_0':
             self.backbone = models.shufflenet_v2_x2_0(pretrained=True)
             
-        elif name == 'alexnet':
+        elif model == 'alexnet':
             self.backbone = models.alexnet(pretrained=True)
             
-        elif name == 'resnext101_32x8d':
+        elif model == 'resnext101_32x8d':
             self.backbone = models.resnext101_32x8d(pretrained=True)
             
-        elif name == 'efficientnet_v2_m':
+        elif model == 'efficientnet_v2_m':
             self.backbone = models.efficientnet_v2_m(pretrained=True)
             
-        elif name == 'vgg19_bn':
+        elif model == 'vgg19_bn':
             self.backbone = models.vgg19_bn(pretrained=True)
             
-        elif name == 'regnet_y_32gf':
+        elif model == 'regnet_y_32gf':
             self.backbone = models.regnet_y_32gf(pretrained=True)
         
-        elif name == 'convnext_base':
+        elif model == 'convnext_base':
             self.backbone = models.convnext_base(pretrained=True)
         
-        elif name == 'efficientnet_b5':
+        elif model == 'efficientnet_b5':
             self.backbone = models.efficientnet_b5(pretrained=True)
         
-        elif name == 'mnasnet1_0':
+        elif model == 'mnasnet1_0':
             self.backbone = models.mnasnet1_0(pretrained=True)
         
-        elif name == 'shufflenet_v2_x1_0':
+        elif model == 'shufflenet_v2_x1_0':
             self.backbone = models.shufflenet_v2_x1_0(pretrained=True)
         
-        elif name == 'resnext101_64x4d':
+        elif model == 'resnext101_64x4d':
             self.backbone = models.resnext101_64x4d(weights='IMAGENET1K_V1')
             
-        elif name == 'densenet201':
+        elif model == 'densenet201':
             self.backbone = models.densenet201(pretrained=True)
             
-        elif name == 'vit_b_32':
+        elif model == 'vit_b_32':
             self.backbone = models.vit_b_32(pretrained=True)
             
-        elif name == 'convnext_large':
+        elif model == 'convnext_large':
             self.backbone = models.convnext_large(pretrained=True)
             
         ##
-        elif name == 'resnet18':
+        elif model == 'resnet18':
             self.backbone = models.resnet18(weights='DEFAULT')
             
-        elif name == 'densenet161':
+        elif model == 'densenet161':
             self.backbone = models.densenet161(weights='DEFAULT')
             
-        elif name == 'mobilenet_v3_small':
+        elif model == 'mobilenet_v3_small':
             self.backbone = models.mobilenet_v3_small(weights='DEFAULT')
             
-        elif name == 'mobilenet_v3_large':
+        elif model == 'mobilenet_v3_large':
             self.backbone = models.mobilenet_v3_large(weights='DEFAULT')
             
-        elif name == 'resnext50_32x4d':
+        elif model == 'resnext50_32x4d':
             self.backbone = models.resnext50_32x4d(weights='DEFAULT')
             
-        elif name == 'resnext101_64x4d':
+        elif model == 'resnext101_64x4d':
             self.backbone = models.resnext101_64x4d(weights='DEFAULT')
         
-        elif name == 'convnext_tiny':
+        elif model == 'convnext_tiny':
             self.backbone = models.convnext_tiny(weights='IMAGENET1K_V1')
             
-        elif name == 'swin_s':
+        elif model == 'swin_s':
             self.backbone = models.swin_s(weights='IMAGENET1K_V1')
             
-        elif name == 'swin_b':
+        elif model == 'swin_b':
             self.backbone = models.swin_b(weights='IMAGENET1K_V1')
             
             
