@@ -13,7 +13,8 @@ from dataset import TestDataset, MaskBaseDataset
 def load_model(saved_model, num_classes, device):
     model_cls = getattr(import_module("model"), args.model)
     model = model_cls(
-        num_classes=num_classes
+        num_classes=num_classes,
+        name = saved_model.split('__')[1] # ./model/g__swin_t__221028_084412 -> swin_t
     )
 
     # tarpath = os.path.join(saved_model, 'best.tar.gz')
@@ -32,7 +33,9 @@ def inference(data_dir, model_dir, output_dir, args):
     """
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
-
+    
+    model_dir = f'./model/{model_dir}'
+    
     num_classes = MaskBaseDataset.num_classes  # 18
     model = load_model(model_dir, num_classes, device).to(device)
     model.eval()
@@ -62,7 +65,7 @@ def inference(data_dir, model_dir, output_dir, args):
             preds.extend(pred.cpu().numpy())
 
     info['ans'] = preds
-    save_path = os.path.join(output_dir, f'output.csv')
+    save_path = os.path.join(output_dir, f'{model_dir[8:]}_output.csv')
     info.to_csv(save_path, index=False)
     print(f"Inference Done! Inference result saved at {save_path}")
 
@@ -77,7 +80,7 @@ if __name__ == '__main__':
 
     # Container environment
     parser.add_argument('--data_dir', type=str, default=os.environ.get('SM_CHANNEL_EVAL', '/opt/ml/input/data/eval'))
-    parser.add_argument('--model_dir', type=str, default=os.environ.get('SM_CHANNEL_MODEL', './model/exp'))
+    parser.add_argument('--model_dir', type=str, default=os.environ.get('SM_CHANNEL_MODEL', 'swin_t_221028_174511'))
     parser.add_argument('--output_dir', type=str, default=os.environ.get('SM_OUTPUT_DATA_DIR', './output'))
 
     args = parser.parse_args()

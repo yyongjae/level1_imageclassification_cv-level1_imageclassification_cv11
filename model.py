@@ -1,52 +1,113 @@
 import torch.nn as nn
 import torch.nn.functional as F
 
+import torchvision
+import torchvision.models as models
+
 
 class BaseModel(nn.Module):
-    def __init__(self, num_classes):
+    def __init__(self, num_classes, name):
         super().__init__()
 
-        self.conv1 = nn.Conv2d(3, 32, kernel_size=7, stride=1)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1)
-        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, stride=1)
-        self.dropout1 = nn.Dropout(0.25)
-        self.dropout2 = nn.Dropout(0.25)
-        self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(128, num_classes)
+        if name == 'efficientnet_b7':
+            self.backbone = models.efficientnet_b7(pretrained=True)
+            
+        elif name == 'resnet50':
+            self.backbone = models.resnet50(pretrained=True)
 
+        elif name == 'densenet121':
+            self.backbone = models.densenet121(pretrained=True)
+            
+        elif name == 'densenet169':
+            self.backbone = models.densenet169(pretrained=True)
+        
+        elif name == 'swin_t':
+            self.backbone = models.swin_t(weights='IMAGENET1K_V1')
+        
+        elif name == 'vit_l_16':
+            self.backbone = models.vit_l_16(pretrained=True)
+        
+        elif name == 'mobilenet_v2':
+            self.backbone = models.mobilenet_v2(pretrained=True)
+        
+        elif name == 'squeezenet1_1':
+            self.backbone = models.squeezenet1_1(pretrained=True)
+        
+        elif name == 'shufflenet_v2_x2_0':
+            self.backbone = models.shufflenet_v2_x2_0(pretrained=True)
+            
+        elif name == 'alexnet':
+            self.backbone = models.alexnet(pretrained=True)
+            
+        elif name == 'resnext101_32x8d':
+            self.backbone = models.resnext101_32x8d(pretrained=True)
+            
+        elif name == 'efficientnet_v2_m':
+            self.backbone = models.efficientnet_v2_m(pretrained=True)
+            
+        elif name == 'vgg19_bn':
+            self.backbone = models.vgg19_bn(pretrained=True)
+            
+        elif name == 'regnet_y_32gf':
+            self.backbone = models.regnet_y_32gf(pretrained=True)
+        
+        elif name == 'convnext_base':
+            self.backbone = models.convnext_base(pretrained=True)
+        
+        elif name == 'efficientnet_b5':
+            self.backbone = models.efficientnet_b5(pretrained=True)
+        
+        elif name == 'mnasnet1_0':
+            self.backbone = models.mnasnet1_0(pretrained=True)
+        
+        elif name == 'shufflenet_v2_x1_0':
+            self.backbone = models.shufflenet_v2_x1_0(pretrained=True)
+        
+        elif name == 'resnext101_64x4d':
+            self.backbone = models.resnext101_64x4d(weights='IMAGENET1K_V1')
+            
+        elif name == 'densenet201':
+            self.backbone = models.densenet201(pretrained=True)
+            
+        elif name == 'vit_b_32':
+            self.backbone = models.vit_b_32(pretrained=True)
+            
+        elif name == 'convnext_large':
+            self.backbone = models.convnext_large(pretrained=True)
+            
+        ##
+        elif name == 'resnet18':
+            self.backbone = models.resnet18(weights='DEFAULT')
+            
+        elif name == 'densenet161':
+            self.backbone = models.densenet161(weights='DEFAULT')
+            
+        elif name == 'mobilenet_v3_small':
+            self.backbone = models.mobilenet_v3_small(weights='DEFAULT')
+            
+        elif name == 'mobilenet_v3_large':
+            self.backbone = models.mobilenet_v3_large(weights='DEFAULT')
+            
+        elif name == 'resnext50_32x4d':
+            self.backbone = models.resnext50_32x4d(weights='DEFAULT')
+            
+        elif name == 'resnext101_64x4d':
+            self.backbone = models.resnext101_64x4d(weights='DEFAULT')
+        
+        elif name == 'convnext_tiny':
+            self.backbone = models.convnext_tiny(weights='IMAGENET1K_V1')
+            
+        elif name == 'swin_s':
+            self.backbone = models.swin_s(weights='IMAGENET1K_V1')
+            
+        elif name == 'swin_b':
+            self.backbone = models.swin_b(weights='IMAGENET1K_V1')
+            
+            
+        self.classifier = nn.Linear(1000, num_classes)
+            
+        
     def forward(self, x):
-        x = self.conv1(x)
-        x = F.relu(x)
-
-        x = self.conv2(x)
-        x = F.relu(x)
-        x = F.max_pool2d(x, 2)
-        x = self.dropout1(x)
-
-        x = self.conv3(x)
-        x = F.relu(x)
-        x = F.max_pool2d(x, 2)
-        x = self.dropout2(x)
-
-        x = self.avgpool(x)
-        x = x.view(-1, 128)
-        return self.fc(x)
-
-
-# Custom Model Template
-class MyModel(nn.Module):
-    def __init__(self, num_classes):
-        super().__init__()
-
-        """
-        1. 위와 같이 생성자의 parameter 에 num_claases 를 포함해주세요.
-        2. 나만의 모델 아키텍쳐를 디자인 해봅니다.
-        3. 모델의 output_dimension 은 num_classes 로 설정해주세요.
-        """
-
-    def forward(self, x):
-        """
-        1. 위에서 정의한 모델 아키텍쳐를 forward propagation 을 진행해주세요
-        2. 결과로 나온 output 을 return 해주세요
-        """
+        x = self.backbone(x)
+        x = self.classifier(x)
         return x

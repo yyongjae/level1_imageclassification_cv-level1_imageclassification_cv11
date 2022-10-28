@@ -7,8 +7,12 @@ from typing import Tuple, List
 import numpy as np
 import torch
 from PIL import Image
-from torch.utils.data import Dataset, Subset, random_split
+from torch.utils.data import Dataset, Subset, random_split, WeightedRandomSampler
 from torchvision.transforms import Resize, ToTensor, Normalize, Compose, CenterCrop, ColorJitter
+
+from sklearn.model_selection import train_test_split
+from collections import Counter
+
 
 IMG_EXTENSIONS = [
     ".jpg", ".JPG", ".jpeg", ".JPEG", ".png",
@@ -311,3 +315,366 @@ class TestDataset(Dataset):
 
     def __len__(self):
         return len(self.img_paths)
+
+
+
+########  에이지 테스크 데이터셋 ########
+class AgeTaskDataset(MaskBaseDataset):
+    """
+    1. MaskBaseDataset에서 mask_label, gender_label 지우고, 
+    2. split_dataset의 나누는 방식을 인덱스를 랜덤으로 나누는 random_split에서 train_test_split에 age변수 기준으로 나누게 변경
+    """
+    num_classes = 3
+    
+    _file_names = {
+        "mask1": MaskLabels.MASK,
+        "mask2": MaskLabels.MASK,
+        "mask3": MaskLabels.MASK,
+        "mask4": MaskLabels.MASK,
+        "mask5": MaskLabels.MASK,
+        "incorrect_mask": MaskLabels.INCORRECT,
+        "normal": MaskLabels.NORMAL
+    }
+    
+    image_paths = []
+    age_labels = []
+    
+    train_weight = None
+
+    def __init__(self, data_dir, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246), val_ratio=0.2):
+        super().__init__(data_dir, mean, std, val_ratio)
+
+
+    def setup(self):
+        profiles = os.listdir(self.data_dir) # data_dir안의 모든 directory명(profile)을 가져옴(000004_male_Asian_54)
+        for profile in profiles:
+            if profile.startswith("."):  # "." 로 시작하는 파일은 무시합니다
+                continue
+
+            img_folder = os.path.join(self.data_dir, profile) # profile path
+            for file_name in os.listdir(img_folder): # profile 안의 사진 이름 하나씩 가져옴: mask1, incorrect 이런거..
+                _file_name, ext = os.path.splitext(file_name) #불필요한 것 제거
+                if _file_name not in self._file_names:  # "." 로 시작하는 파일 및 invalid 한 파일들은 무시합니다
+                    continue
+
+                img_path = os.path.join(self.data_dir, profile, file_name)  # (resized_data, 000004_male_Asian_54, mask1.jpg)
+
+                id, gender, race, age = profile.split("_") # profile 쪼개기
+                age_label = AgeLabels.from_number(age) # age애 멎눈 label 부여
+
+                self.image_paths.append(img_path) # 클래스 변수에 추가
+                self.age_labels.append(age_label)
+
+                
+    def __getitem__(self, index):
+        assert self.transform is not None, ".set_tranform 메소드를 이용하여 transform 을 주입해주세요"
+
+        image = self.read_image(index)
+        image_transform = self.transform(image)
+        age_label = self.get_age_label(index)
+        
+        return image_transform, age_label
+
+   
+    def split_dataset(self, sampler) -> Tuple[Subset, Subset]:
+        """    
+        age에 따라 전체 데이터셋의 인덱스를 나누고,
+        인덱스에 맞게 Subset 클래스로 train_set, val_set 구하기
+        """
+        train_indices, val_indices, _, _ = train_test_split(range(len(self)), 
+                                                            self.age_labels, 
+                                                            test_size=self.val_ratio, 
+                                                            stratify=self.age_labels, 
+                                                            shuffle=True,)    
+        # sampler 계산
+        if sampler == 'yes':
+            # weight 계산 과정
+            train_labels = []
+            
+            for i in range(len(self.age_labels)):
+                if i in train_indices:
+                    train_labels.append(self.age_labels[i])
+
+            t = Counter(train_labels)
+            train_count = [t[i] for i in train_labels] # 각 위치의 label별 개수
+
+            tmax = max(t.values()) # 최빈값
+            tmin = min(t.values()) # 최저값
+
+            train_weight = 1. / np.array(train_count) # 가중치 계산
+
+            self.train_weight = WeightedRandomSampler(train_weight,len(train_indices))
+
+        # 데이터 나누기
+        train_set = Subset(self, train_indices)
+        val_set = Subset(self, val_indices)
+        
+        return train_set, val_set
+    
+    
+
+########  Gender 테스크 데이터셋 ########
+class GenderTaskDataset(MaskBaseDataset):
+    """
+    1. MaskBaseDataset에서 mask_label, age_label 지우고, 
+    2. split_dataset의 나누는 방식을 인덱스를 랜덤으로 나누는 random_split에서 train_test_split에 age변수 기준으로 나누게 변경
+    """
+    num_classes = 2 # male, female
+    
+    _file_names = {
+        "mask1": MaskLabels.MASK,
+        "mask2": MaskLabels.MASK,
+        "mask3": MaskLabels.MASK,
+        "mask4": MaskLabels.MASK,
+        "mask5": MaskLabels.MASK,
+        "incorrect_mask": MaskLabels.INCORRECT,
+        "normal": MaskLabels.NORMAL
+    }
+    
+    image_paths = []
+    gender_labels = []
+
+    def __init__(self, data_dir, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246), val_ratio=0.2):
+        super().__init__(data_dir, mean, std, val_ratio)
+
+
+    def setup(self):
+        profiles = os.listdir(self.data_dir) # data_dir안의 모든 directory명(profile)을 가져옴(000004_male_Asian_54)
+        for profile in profiles:
+            if profile.startswith("."):  # "." 로 시작하는 파일은 무시합니다
+                continue
+
+            img_folder = os.path.join(self.data_dir, profile) # profile path
+            for file_name in os.listdir(img_folder): # profile 안의 사진 이름 하나씩 가져옴: mask1, incorrect 이런거..
+                _file_name, ext = os.path.splitext(file_name) #불필요한 것 제거
+                if _file_name not in self._file_names:  # "." 로 시작하는 파일 및 invalid 한 파일들은 무시합니다
+                    continue
+
+                img_path = os.path.join(self.data_dir, profile, file_name)  # (resized_data, 000004_male_Asian_54, mask1.jpg)
+
+                id, gender, race, age = profile.split("_") # profile 쪼개기
+                gender_label = GenderLabels.from_number(gender) # age애 멎눈 label 부여
+
+                self.image_paths.append(img_path) # 클래스 변수에 추가
+                self.gender_labels.append(gender)
+
+                
+    def __getitem__(self, index):
+        assert self.transform is not None, ".set_tranform 메소드를 이용하여 transform 을 주입해주세요"
+
+        image = self.read_image(index)
+        image_transform = self.transform(image)
+        gender_label = self.get_gender_label(index)
+        
+        return image_transform, gender_label # task 나누는 경우
+
+   
+    def split_dataset(self, sampler) -> Tuple[Subset, Subset]:
+        """    
+        gender에 따라 전체 데이터셋의 인덱스를 나누고,
+        인덱스에 맞게 Subset 클래스로 train_set, val_set 구하기
+        """
+        train_indices, val_indices, _, _ = train_test_split(range(len(self)), 
+                                                            self.gender_labels, 
+                                                            test_size=self.val_ratio, 
+                                                            stratify=self.gender_labels, 
+                                                            shuffle=True,
+                                                            )
+        # sampler 계산
+        if sampler == 'yes':
+            # weight 계산 과정
+            train_labels = []
+            
+            for i in range(len(self.gender_labels)):
+                if i in train_indices:
+                    train_labels.append(self.gender_labels[i])
+
+            t = Counter(train_labels)
+            train_count = [t[i] for i in train_labels] # 각 위치의 label별 개수
+
+            tmax = max(t.values()) # 최빈값
+            tmin = min(t.values()) # 최저값
+
+            train_weight = 1. / np.array(train_count) # 가중치 계산
+
+            self.train_weight = WeightedRandomSampler(train_weight,len(train_indices))
+        
+        # 데이터 나누기
+        train_set = Subset(self, train_indices)
+        val_set = Subset(self, val_indices)
+        
+        return train_set, val_set    
+    
+    
+
+
+########  Mask 테스크 데이터셋 ########
+class MaskTaskDataset(MaskBaseDataset):
+    num_classes = 3
+
+    _file_names = {
+        "mask1": MaskLabels.MASK,
+        "mask2": MaskLabels.MASK,
+        "mask3": MaskLabels.MASK,
+        "mask4": MaskLabels.MASK,
+        "mask5": MaskLabels.MASK,
+        "incorrect_mask": MaskLabels.INCORRECT,
+        "normal": MaskLabels.NORMAL
+    }
+
+    image_paths = []
+    mask_labels = []
+    gender_labels = []
+    age_labels = []
+
+    train_weight = None
+
+    def __init__(self, data_dir, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246), val_ratio=0.2):
+        super(MaskBaseDataset).__init__(data_dir, mean, std, val_ratio)
+
+    def setup(self):
+        profiles = os.listdir(self.data_dir)
+        for profile in profiles:
+            if profile.startswith("."):  # "." 로 시작하는 파일은 무시합니다
+                continue
+
+            img_folder = os.path.join(self.data_dir, profile)
+            for file_name in os.listdir(img_folder):
+                _file_name, ext = os.path.splitext(file_name)
+                if _file_name not in self._file_names:  # "." 로 시작하는 파일 및 invalid 한 파일들은 무시합니다
+                    continue
+                
+                img_path = os.path.join(self.data_dir, profile, file_name)  # (resized_data, 000004_male_Asian_54, mask1.jpg)
+                mask_label = self._file_names[_file_name]
+
+                id, gender, race, age = profile.split("_")
+                gender_label = GenderLabels.from_str(gender)
+                age_label = AgeLabels.from_number(age)
+
+                self.image_paths.append(img_path)
+                self.mask_labels.append(mask_label)
+                self.gender_labels.append(gender_label)
+                self.age_labels.append(age_label)
+
+
+    def __getitem__(self, index):
+        assert self.transform is not None, ".set_tranform 메소드를 이용하여 transform 을 주입해주세요"##############
+
+        image = self.read_image(index)
+        mask_label = self.get_mask_label(index)
+        image_transform = self.transform(image)
+
+        return image_transform, mask_label
+
+    def split_dataset(self, sampler) -> Tuple[Subset, Subset]:
+        n_val = int(len(self) * self.val_ratio)
+        n_train = len(self) - n_val
+        train_set = Subset(self, [i for i in range(n_train)])
+        
+        mask_weights = [1/300, 1/100, 1/100]
+        if sampler == 'yes':
+            self.train_weight = [mask_weights[train_set[i][1]]
+                                 for i in range(len(train_set))]
+            self.train_weight = torch.tensor(self.train_weight, dtype=torch.double)
+            self.train_weight = WeightedRandomSampler(
+                self.train_weight, len(self.train_weight), replacement=True)
+
+        val_set = Subset(self, [i for i in range(n_train, len(self))])
+        return train_set, val_set
+
+
+########  Total 테스크 데이터셋 ########
+class TotalDataset(MaskBaseDataset):
+    num_classes = 3 * 2 * 3
+
+    _file_names = {
+        "mask1": MaskLabels.MASK,
+        "mask2": MaskLabels.MASK,
+        "mask3": MaskLabels.MASK,
+        "mask4": MaskLabels.MASK,
+        "mask5": MaskLabels.MASK,
+        "incorrect_mask": MaskLabels.INCORRECT,
+        "normal": MaskLabels.NORMAL
+    }
+
+    image_paths = []
+    mask_labels = []
+    gender_labels = []
+    age_labels = []
+
+    def __init__(self, data_dir, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246), val_ratio=0.2):
+        super().__init__(data_dir, mean, std, val_ratio)
+
+    def setup(self):
+        profiles = os.listdir(self.data_dir)
+        for profile in profiles:
+            if profile.startswith("."):  # "." 로 시작하는 파일은 무시합니다
+                continue
+
+            img_folder = os.path.join(self.data_dir, profile)
+            for file_name in os.listdir(img_folder):
+                _file_name, ext = os.path.splitext(file_name)
+                if _file_name not in self._file_names:  # "." 로 시작하는 파일 및 invalid 한 파일들은 무시합니다
+                    continue
+
+                img_path = os.path.join(self.data_dir, profile, file_name)  # (resized_data, 000004_male_Asian_54, mask1.jpg)
+                mask_label = self._file_names[_file_name]
+
+                id, gender, race, age = profile.split("_")
+                gender_label = GenderLabels.from_str(gender)
+                age_label = AgeLabels.from_number(age)
+
+                self.image_paths.append(img_path)
+                self.mask_labels.append(mask_label)
+                self.gender_labels.append(gender_label)
+                self.age_labels.append(age_label)
+
+    def __getitem__(self, index):
+        assert self.transform is not None, ".set_tranform 메소드를 이용하여 transform 을 주입해주세요"
+
+        image = self.read_image(index)
+        mask_label = self.get_mask_label(index)
+        gender_label = self.get_gender_label(index)
+        age_label = self.get_age_label(index)
+        multi_class_label = self.encode_multi_class(mask_label, gender_label, age_label)
+
+        image_transform = self.transform(image)
+
+        return image_transform, multi_class_label
+        
+        
+    def split_dataset(self, sampler) -> Tuple[Subset, Subset]:
+        """    
+        class에 따라 전체 데이터셋의 인덱스를 나누고,
+        인덱스에 맞게 Subset 클래스로 train_set, val_set 구하기
+        """
+        multi_class_labels = np.array(self.mask_labels)*6 + np.array(self.gender_labels)*3 + np.array(self.age_labels)
+        train_indices, val_indices, _, _ = train_test_split(range(len(self)), 
+                                                            multi_class_labels, 
+                                                            test_size=self.val_ratio, 
+                                                            stratify=multi_class_labels, 
+                                                            shuffle=True,
+                                                           )
+        # sampler 계산
+        if sampler == 'yes':
+            # weight 계산 과정
+            train_labels = []
+            
+            for i in range(len(multi_class_labels)):
+                if i in train_indices:
+                    train_labels.append(multi_class_labels[i])
+
+            t = Counter(train_labels)
+            train_count = [t[i] for i in train_labels] # 각 위치의 label별 개수
+
+            tmax = max(t.values()) # 최빈값
+            tmin = min(t.values()) # 최저값
+
+            train_weight = 1. / np.array(train_count) # 가중치 계산
+
+            self.train_weight = WeightedRandomSampler(train_weight,len(train_indices))
+
+        train_set = Subset(self, train_indices)
+        val_set = Subset(self, val_indices)
+        
+        return train_set, val_set
