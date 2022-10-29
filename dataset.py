@@ -433,6 +433,8 @@ class GenderTaskDataset(MaskBaseDataset):
     
     image_paths = []
     gender_labels = []
+    
+    train_weight = None
 
     def __init__(self, data_dir, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246), val_ratio=0.2):
         super().__init__(data_dir, mean, std, val_ratio)
@@ -584,7 +586,7 @@ class MaskTaskDataset(MaskBaseDataset):
 
 
 ########  Total 테스크 데이터셋 ########
-class TotalDataset(MaskBaseDataset):
+class TotalTaskDataset(MaskBaseDataset):
     num_classes = 3 * 2 * 3
 
     _file_names = {
@@ -601,6 +603,8 @@ class TotalDataset(MaskBaseDataset):
     mask_labels = []
     gender_labels = []
     age_labels = []
+    
+    train_weight = None
 
     def __init__(self, data_dir, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246), val_ratio=0.2):
         super().__init__(data_dir, mean, std, val_ratio)

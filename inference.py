@@ -35,7 +35,16 @@ def inference(data_dir, model_dir, output_dir, args):
     
 #     model_dir = f'./model/{model_dir}'
     
-    num_classes = getattr(import_module("dataset"), args.dataset).num_classes
+#     num_classes = getattr(import_module("dataset"), args.dataset).num_classes
+    
+    task = model_dir.split('__')[0][-1]
+    if task == 't':
+        num_classes = 18
+    elif task == 'age':
+        num_classes = 2
+    else:
+        num_classes = 3
+    
     model = load_model(model_dir, num_classes, device).to(device)
     model.eval()
 
@@ -77,7 +86,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=1000, help='input batch size for validing (default: 1000)')
     parser.add_argument('--resize', type=tuple, default=(96, 128), help='resize size for image when you trained (default: (96, 128))')
 #     parser.add_argument('--model', type=str, default='BaseModel', help='model type (default: BaseModel)')
-    parser.add_argument('--dataset', type=str, default='MaskBaseDataset', help='dataset augmentation type (default: MaskBaseDataset)')
+#     parser.add_argument('--dataset', type=str, default='MaskBaseDataset', help='dataset augmentation type (default: MaskBaseDataset)')
 
     # Container environment
     parser.add_argument('--data_dir', type=str, default=os.environ.get('SM_CHANNEL_EVAL', '/opt/ml/input/data/eval'))
