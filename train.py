@@ -159,6 +159,11 @@ def train(data_dir, model_dir, args):
         weight_decay=1e-4
     )
     scheduler = StepLR(optimizer, args.lr_decay_step, gamma=0.5)
+    ################################################################################
+    # 바꿔볼 꺼
+    #scheduler = CosineAnnealingLR(optimier, T_max=10, eta_min=0)
+    #scheduler = ReduceLROnPlateau(optimizer, 'min')
+    ################################################################################
 
     # -- logging
     logger = SummaryWriter(log_dir=save_dir)
