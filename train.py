@@ -249,10 +249,12 @@ def train(data_dir, model_dir, args):
             val_acc = accuracy_score(targets, predictions)
             val_f1 = f1_score(targets, predictions, average='macro')
             best_val_loss = min(best_val_loss, val_loss)
-            if val_acc > best_val_acc:
-                print(f"New best model for val accuracy : {val_acc:4.2%}! saving the best model..")
+            best_val_acc = max(best_val_acc, val_acc)
+
+            if val_f1 > best_val_f1:
+                print(f"New best model for val macro-f1 : {val_f1:4.2%}! saving the best model..")
                 torch.save(model.module.state_dict(), f"{save_dir}/best.pth")
-                best_val_acc = val_acc
+                best_val_f1 = val_f1
             torch.save(model.module.state_dict(), f"{save_dir}/last.pth")
             
             if val_f1 > best_f1:
