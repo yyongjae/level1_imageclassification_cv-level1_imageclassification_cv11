@@ -64,6 +64,11 @@ def grid_image(np_images, gts, preds, n=16, shuffle=False, task = 'total'):
                 for gt_label, pred_label, task
                 in zip(gt_decoded_labels, pred_decoded_labels, tasks)
             ])
+            plt.subplot(n_grid, n_grid, idx + 1, title=title)
+            plt.xticks([])
+            plt.yticks([])
+            plt.grid(False)
+            plt.imshow(image, cmap=plt.cm.binary)
     else:
         for idx, choice in enumerate(choices):
             gt = gts[choice].item()
@@ -72,11 +77,11 @@ def grid_image(np_images, gts, preds, n=16, shuffle=False, task = 'total'):
             tasks = task
             title = '\n{} - gt: {}, pred: {}'.format(task, int(gt), int(pred))
 
-        plt.subplot(n_grid, n_grid, idx + 1, title=title)
-        plt.xticks([])
-        plt.yticks([])
-        plt.grid(False)
-        plt.imshow(image, cmap=plt.cm.binary)
+            plt.subplot(n_grid, n_grid, idx + 1, title=title)
+            plt.xticks([])
+            plt.yticks([])
+            plt.grid(False)
+            plt.imshow(image, cmap=plt.cm.binary)
 
     return figure
 
@@ -108,6 +113,7 @@ def train(data_dir, model_dir, args):
     dataset_module = getattr(import_module("dataset"), args.dataset)  # default: MaskBaseDataset
     dataset = dataset_module(
         data_dir=data_dir,
+        val_ratio=args.val_ratio,
     )
     num_classes = dataset.num_classes  # 18
 
