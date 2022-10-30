@@ -159,6 +159,11 @@ def train(data_dir, model_dir, args):
         weight_decay=1e-4
     )
     scheduler = StepLR(optimizer, args.lr_decay_step, gamma=0.5)
+    ################################################################################
+    # 바꿔볼 꺼
+    #scheduler = CosineAnnealingLR(optimier, T_max=10, eta_min=0)
+    #scheduler = ReduceLROnPlateau(optimizer, 'min')
+    ################################################################################
 
     # -- logging
     logger = SummaryWriter(log_dir=save_dir)
@@ -167,7 +172,7 @@ def train(data_dir, model_dir, args):
 
     best_val_acc = 0
     best_val_loss = np.inf
-    best_f1 = 0
+    best_val_f1 = 0
     
     for epoch in range(args.epochs):
         # train loop
@@ -244,18 +249,17 @@ def train(data_dir, model_dir, args):
             val_acc = accuracy_score(targets, predictions)
             val_f1 = f1_score(targets, predictions, average='macro')
             best_val_loss = min(best_val_loss, val_loss)
-            if val_acc > best_val_acc:
-                print(f"New best model for val accuracy : {val_acc:4.2%}! saving the best model..")
+            best_val_acc = max(best_val_acc, val_acc)
+
+            if val_f1 > best_val_f1:
+                print(f"New best model for val macro-f1 : {val_f1:4.2%}! saving the best model..")
                 torch.save(model.module.state_dict(), f"{save_dir}/best.pth")
-                best_val_acc = val_acc
+                best_val_f1 = val_f1
             torch.save(model.module.state_dict(), f"{save_dir}/last.pth")
-            
-            if val_f1 > best_f1:
-                best_f1 = val_f1
                 
             print(
                 f"[Val] acc : {val_acc:4.2%}, loss: {val_loss:4.2}, macro-f1: {val_f1:4.2} || "
-                f"best acc : {best_val_acc:4.2%}, best loss: {best_val_loss:4.2}, best macro-f1: {best_f1:4.2}"
+                f"best acc : {best_val_acc:4.2%}, best loss: {best_val_loss:4.2}, best macro-f1: {best_val_f1:4.2}"
             )
             logger.add_scalar("Val/loss", val_loss, epoch)
             logger.add_scalar("Val/accuracy", val_acc, epoch)
