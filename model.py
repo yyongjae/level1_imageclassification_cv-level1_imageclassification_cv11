@@ -1,4 +1,4 @@
-from torchvision import nn
+from torch import nn
 import torch.nn.functional as F
 
 import torchvision
