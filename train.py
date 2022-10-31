@@ -23,6 +23,8 @@ from sklearn.metrics import f1_score, accuracy_score
 from datetime import datetime
 from pytz import timezone
 
+import wandb
+
 def seed_everything(seed):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
@@ -88,7 +90,6 @@ def grid_image(np_images, gts, preds, n=16, shuffle=False, task = 'total'):
 
 def increment_path(dir, name, task = 'total'):
     """ Automatically increment path, i.e. runs/exp --> runs/exp0, runs/exp1 etc.
-
     Args:
         path (str or pathlib.Path): f"{model_dir}/{args.model}".
         exist_ok (bool): whether increment path (increment if False).
@@ -97,13 +98,24 @@ def increment_path(dir, name, task = 'total'):
     path = Path(path)
 
     now = datetime.now(timezone('Asia/Seoul')).strftime('__%y%m%d_%H%M%S')
-    return f"{path}{now}"
+    wandbname = f'{task[0]}__{name}{now}'
+    return f"{path}{now}", wandbname
 
 
 def train(data_dir, model_dir, args):
+    
     seed_everything(args.seed)
 
-    save_dir = increment_path(model_dir, args.model, args.task)
+    save_dir, wandbname = increment_path(model_dir, args.model, args.task)
+    
+    ## wandb 설정
+    ## scv_mask_competition 프로젝트 내에서 save_dir 이름으로 정보 저장.
+    wandb.init(
+            project=f'{args.wandbproject}',
+            entity=f'{args.wandbentity}',
+            name = wandbname
+        )
+    wandb.config.update(args)
 
     # -- settings
     use_cuda = torch.cuda.is_available()
@@ -171,6 +183,8 @@ def train(data_dir, model_dir, args):
     #scheduler = ReduceLROnPlateau(optimizer, 'min')
     ################################################################################
 
+    wandb.watch(model)
+     
     # -- logging
     logger = SummaryWriter(log_dir=save_dir)
     with open(os.path.join(save_dir, 'config.json'), 'w', encoding='utf-8') as f:
@@ -212,6 +226,11 @@ def train(data_dir, model_dir, args):
                 logger.add_scalar("Train/loss", train_loss, epoch * len(train_loader) + idx)
                 logger.add_scalar("Train/accuracy", train_acc, epoch * len(train_loader) + idx)
 
+                ### WandB ###
+                wandb.log({
+                "Train Accuracy": train_acc,
+                "Train Loss": train_loss})
+                
                 loss_value = 0
                 matches = 0
 
@@ -271,7 +290,21 @@ def train(data_dir, model_dir, args):
             logger.add_scalar("Val/accuracy", val_acc, epoch)
             logger.add_figure("results", figure, epoch)
             print()
-
+            
+            wandb.log({
+            "Val Accuracy": val_acc,
+            "Val Loss": val_loss,
+            "F1 score": val_f1,
+            "Pred Figure": [wandb.Image(figure, caption="Val Pred")]
+            })    
+            print()
+            
+    wandb.log({
+        "Best Val Acc" : best_val_acc,
+        "Best Val loss" : best_val_loss,
+        "Best F1 score" : best_val_f1
+        })
+    wandb.finish()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -298,6 +331,12 @@ if __name__ == '__main__':
     parser.add_argument('--data_dir', type=str, default=os.environ.get('SM_CHANNEL_TRAIN', '/opt/ml/input/data/train/images'))
     parser.add_argument('--model_dir', type=str, default=os.environ.get('SM_MODEL_DIR', './model'))
 
+    # wandb options
+    parser.add_argument("--wandbproject", type=str,
+                        default='scv_mask_competition', help='wandb project')
+    parser.add_argument("--wandbentity", type=str,
+                        default='scv_mask_competition', help='wandb entity')
+    
     args = parser.parse_args()
     print(args)
 
