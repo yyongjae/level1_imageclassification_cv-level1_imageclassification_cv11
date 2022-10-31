@@ -41,9 +41,9 @@ def inference(data_dir, model_dir, output_dir, args):
     if task == 't':
         num_classes = 18
     elif task == 'age':
-        num_classes = 2
-    else:
         num_classes = 3
+    else:
+        num_classes = 2
     
     model = load_model(model_dir, num_classes, device).to(device)
     model.eval()
