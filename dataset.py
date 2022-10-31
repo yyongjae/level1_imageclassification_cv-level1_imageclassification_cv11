@@ -319,7 +319,7 @@ class TestDataset(Dataset):
 
 
 ########  에이지 테스크 데이터셋 ########
-class AgeDataset(MaskSplitByProfileDataset):
+class AgeTaskDataset(MaskSplitByProfileDataset):
     """
         num_classes = 3으로 수정
         _split_profile 내부 수정
