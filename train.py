@@ -331,6 +331,12 @@ if __name__ == '__main__':
     parser.add_argument('--data_dir', type=str, default=os.environ.get('SM_CHANNEL_TRAIN', '/opt/ml/input/data/train/images'))
     parser.add_argument('--model_dir', type=str, default=os.environ.get('SM_MODEL_DIR', './model'))
 
+    # wandb options
+    parser.add_argument("--wandbproject", type=str,
+                        default='scv_mask_competition', help='wandb project')
+    parser.add_argument("--wandbentity", type=str,
+                        default='scv_mask_competition', help='wandb entity')
+    
     args = parser.parse_args()
     print(args)
 
