@@ -40,7 +40,7 @@ def inference(data_dir, model_dir, output_dir, args):
     task = model_dir.split('__')[0][-1]
     if task == 't':
         num_classes = 18
-    elif task == 'age':
+    elif task == 'g':
         num_classes = 2
     else:
         num_classes = 3

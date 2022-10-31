@@ -319,98 +319,49 @@ class TestDataset(Dataset):
 
 
 ########  에이지 테스크 데이터셋 ########
-class AgeTaskDataset(MaskBaseDataset):
+class AgeTaskDataset(MaskSplitByProfileDataset):
     """
-    1. MaskBaseDataset에서 mask_label, gender_label 지우고, 
-    2. split_dataset의 나누는 방식을 인덱스를 랜덤으로 나누는 random_split에서 train_test_split에 age변수 기준으로 나누게 변경
+        num_classes = 3으로 수정
+        _split_profile 내부 수정
+        __getitem__ return 값 수정
     """
     num_classes = 3
-    
-    _file_names = {
-        "mask1": MaskLabels.MASK,
-        "mask2": MaskLabels.MASK,
-        "mask3": MaskLabels.MASK,
-        "mask4": MaskLabels.MASK,
-        "mask5": MaskLabels.MASK,
-        "incorrect_mask": MaskLabels.INCORRECT,
-        "normal": MaskLabels.NORMAL
-    }
-    
-    image_paths = []
-    age_labels = []
-    
-    train_weight = None
 
     def __init__(self, data_dir, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246), val_ratio=0.2):
+        self.indices = defaultdict(list) # {'train':[2,5,6,7,...], 'val':[0,1,3,4,...]}
         super().__init__(data_dir, mean, std, val_ratio)
 
-
-    def setup(self):
-        profiles = os.listdir(self.data_dir) # data_dir안의 모든 directory명(profile)을 가져옴(000004_male_Asian_54)
+    @staticmethod
+    def _split_profile(profiles, val_ratio):
+        age_labels_temp = []
         for profile in profiles:
-            if profile.startswith("."):  # "." 로 시작하는 파일은 무시합니다
-                continue
+            id, gender, race, age = profile.split("_")
+            age = AgeLabels.from_number(age)
+            age_labels_temp.append(age)
 
-            img_folder = os.path.join(self.data_dir, profile) # profile path
-            for file_name in os.listdir(img_folder): # profile 안의 사진 이름 하나씩 가져옴: mask1, incorrect 이런거..
-                _file_name, ext = os.path.splitext(file_name) #불필요한 것 제거
-                if _file_name not in self._file_names:  # "." 로 시작하는 파일 및 invalid 한 파일들은 무시합니다
-                    continue
+        train_indices, val_indices, _, _ = train_test_split(range(len(profiles)), age_labels_temp, 
+                                                            stratify=age_labels_temp, test_size=val_ratio, shuffle=True)
 
-                img_path = os.path.join(self.data_dir, profile, file_name)  # (resized_data, 000004_male_Asian_54, mask1.jpg)
+        return {
+            "train": train_indices,
+            "val": val_indices
+        }
 
-                id, gender, race, age = profile.split("_") # profile 쪼개기
-                age_label = AgeLabels.from_number(age) # age애 멎눈 label 부여
-
-                self.image_paths.append(img_path) # 클래스 변수에 추가
-                self.age_labels.append(age_label)
-
-                
     def __getitem__(self, index):
         assert self.transform is not None, ".set_tranform 메소드를 이용하여 transform 을 주입해주세요"
 
         image = self.read_image(index)
-        image_transform = self.transform(image)
+        mask_label = self.get_mask_label(index)
+        gender_label = self.get_gender_label(index)
         age_label = self.get_age_label(index)
-        
+        multi_class_label = self.encode_multi_class(mask_label, gender_label, age_label)
+
+        image_transform = self.transform(image)
         return image_transform, age_label
-
-   
-    def split_dataset(self, sampler) -> Tuple[Subset, Subset]:
-        """    
-        age에 따라 전체 데이터셋의 인덱스를 나누고,
-        인덱스에 맞게 Subset 클래스로 train_set, val_set 구하기
-        """
-        train_indices, val_indices, _, _ = train_test_split(range(len(self)), 
-                                                            self.age_labels, 
-                                                            test_size=self.val_ratio, 
-                                                            stratify=self.age_labels, 
-                                                            shuffle=True,)    
-        # sampler 계산
-        if sampler == 'yes':
-            # weight 계산 과정
-            train_labels = []
-            
-            for i in range(len(self.age_labels)):
-                if i in train_indices:
-                    train_labels.append(self.age_labels[i])
-
-            t = Counter(train_labels)
-            train_count = [t[i] for i in train_labels] # 각 위치의 label별 개수
-
-            tmax = max(t.values()) # 최빈값
-            tmin = min(t.values()) # 최저값
-
-            train_weight = 1. / np.array(train_count) # 가중치 계산
-
-            self.train_weight = WeightedRandomSampler(train_weight,len(train_indices))
-
-        # 데이터 나누기
-        train_set = Subset(self, train_indices)
-        val_set = Subset(self, val_indices)
-        
-        return train_set, val_set
     
+
+    def split_dataset(self, sampler) -> List[Subset]:
+        return [Subset(self, indices) for phase, indices in self.indices.items()] 
     
 
 ########  Gender 테스크 데이터셋 ########
@@ -458,7 +409,7 @@ class GenderTaskDataset(MaskBaseDataset):
                 gender_label = GenderLabels.from_str(gender) # age애 멎눈 label 부여
 
                 self.image_paths.append(img_path) # 클래스 변수에 추가
-                self.gender_labels.append(gender)
+                self.gender_labels.append(gender_label)
 
                 
     def __getitem__(self, index):
