@@ -326,6 +326,7 @@ class AgeTaskDataset(MaskSplitByProfileDataset):
         __getitem__ return 값 수정
     """
     num_classes = 3
+    train_weights = None
 
     def __init__(self, data_dir, mean=(0.548, 0.504, 0.479), std=(0.237, 0.247, 0.246), val_ratio=0.2):
         self.indices = defaultdict(list) # {'train':[2,5,6,7,...], 'val':[0,1,3,4,...]}
@@ -361,6 +362,15 @@ class AgeTaskDataset(MaskSplitByProfileDataset):
     
 
     def split_dataset(self, sampler) -> List[Subset]:
+        # split_dataset과 상관없고, train_weight 계산 과정
+        train_indices = self.indices['train']
+        train_labels = [self.age_labels[i] for i in train_indices]
+        if sampler=='yes':
+            cnt = Counter(train_labels)
+            train_count = [cnt[i] for i in train_labels]
+            train_weight = 1. / np.array(train_count)
+            self.train_weight = WeightedRandomSampler(train_weight, len(train_indices))
+
         return [Subset(self, indices) for phase, indices in self.indices.items()] 
     
 
