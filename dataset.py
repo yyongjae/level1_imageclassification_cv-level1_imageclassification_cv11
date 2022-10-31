@@ -455,10 +455,10 @@ class GenderTaskDataset(MaskBaseDataset):
                 img_path = os.path.join(self.data_dir, profile, file_name)  # (resized_data, 000004_male_Asian_54, mask1.jpg)
 
                 id, gender, race, age = profile.split("_") # profile 쪼개기
-                gender_label = GenderLabels.from_str(gender) # age애 멎눈 label 부여
+                gender_label = GenderLabels.from_number(gender) # age애 멎눈 label 부여
 
                 self.image_paths.append(img_path) # 클래스 변수에 추가
-                self.gender_labels.append(gender)
+                self.gender_labels.append(gender_label)
 
                 
     def __getitem__(self, index):
