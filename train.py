@@ -7,6 +7,7 @@ import random
 import re
 from importlib import import_module
 from pathlib import Path
+from copy import copy
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -15,11 +16,13 @@ from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
+from sklearn.model_selection import StratifiedKFold
+
 from dataset import MaskBaseDataset
 from model import BaseModel
 from loss import create_criterion
 
-from sklearn.metrics import f1_score, accuracy_score
+from sklearn.metrics import f1_score, accuracy_score, classification_report
 from datetime import datetime
 from pytz import timezone
 
@@ -45,8 +48,8 @@ def grid_image(np_images, gts, preds, n=16, shuffle=False, task = 'total'):
     assert n <= batch_size
 
     choices = random.choices(range(batch_size), k=n) if shuffle else list(range(n))
-    figure = plt.figure(figsize=(12, 18 + 2))  # cautions: hardcoded, 이미지 크기에 따라 figsize 를 조정해야 할 수 있습니다. T.T
-    plt.subplots_adjust(top=0.8)  # cautions: hardcoded, 이미지 크기에 따라 top 를 조정해야 할 수 있습니다. T.T
+    figure = plt.figure(figsize=(12, 18 + 2))
+    plt.subplots_adjust(top=0.8)
     n_grid = int(np.ceil(n ** 0.5))
     
     
@@ -89,11 +92,6 @@ def grid_image(np_images, gts, preds, n=16, shuffle=False, task = 'total'):
 
 
 def increment_path(dir, name, task = 'total'):
-    """ Automatically increment path, i.e. runs/exp --> runs/exp0, runs/exp1 etc.
-    Args:
-        path (str or pathlib.Path): f"{model_dir}/{args.model}".
-        exist_ok (bool): whether increment path (increment if False).
-    """
     path = os.path.join(dir, f'{task[0]}__{name}')
     path = Path(path)
 
@@ -101,21 +99,60 @@ def increment_path(dir, name, task = 'total'):
     wandbname = f'{task[0]}__{name}{now}'
     return f"{path}{now}", wandbname
 
+# https://sseunghyuns.github.io/classification/2021/05/25/invasive-pytorch/#
+def rand_bbox(size, lam): # size : [B, C, W, H]
+    W = size[2] # 이미지의 width
+    H = size[3] # 이미지의 height
+    cut_rat = np.sqrt(1. - lam)  # 패치 크기의 비율 정하기
+    cut_w = np.int(W * cut_rat)  # 패치의 너비
+    cut_h = np.int(H * cut_rat)  # 패치의 높이
+
+    # uniform
+    # 기존 이미지의 크기에서 랜덤하게 값을 가져옵니다.(중간 좌표 추출)
+    cx = np.random.randint(W)
+    cy = np.random.randint(H)
+
+    # 패치 부분에 대한 좌표값을 추출합니다.
+    bbx1 = np.clip(cx - cut_w // 2, 0, W)
+    bby1 = np.clip(cy - cut_h // 2, 0, H)
+    bbx2 = np.clip(cx + cut_w // 2, 0, W)
+    bby2 = np.clip(cy + cut_h // 2, 0, H)
+
+    return bbx1, bby1, bbx2, bby2
+
+def getDataloader(dataset, train_idx, valid_idx, batch_size, num_workers):
+    use_cuda = torch.cuda.is_available()
+    device = torch.device("cuda" if use_cuda else "cpu")
+    train_set = torch.utils.data.Subset(dataset,
+                                        indices=train_idx)
+    val_set   = torch.utils.data.Subset(dataset,
+                                        indices=valid_idx)
+    
+    train_loader = torch.utils.data.DataLoader(
+        train_set,
+        batch_size=args.batch_size,
+        num_workers=multiprocessing.cpu_count() // 2,
+        shuffle=(dataset.train_weight == None),
+        pin_memory=use_cuda,
+        drop_last=True,
+        sampler=dataset.train_weight,
+    )
+    val_loader = torch.utils.data.DataLoader(
+        val_set,
+        batch_size=args.valid_batch_size,
+        num_workers=multiprocessing.cpu_count() // 2,
+        shuffle=False,
+        pin_memory=use_cuda,
+        drop_last=True,
+    )
+    
+    return train_loader, val_loader
 
 def train(data_dir, model_dir, args):
     
     seed_everything(args.seed)
 
     save_dir, wandbname = increment_path(model_dir, args.model, args.task)
-    
-    ## wandb 설정
-    ## scv_mask_competition 프로젝트 내에서 save_dir 이름으로 정보 저장.
-    wandb.init(
-            project=f'{args.wandbproject}',
-            entity=f'{args.wandbentity}',
-            name = wandbname
-        )
-    wandb.config.update(args)
 
     # -- settings
     use_cuda = torch.cuda.is_available()
@@ -129,182 +166,202 @@ def train(data_dir, model_dir, args):
     )
     num_classes = dataset.num_classes  # 18
 
-    # -- augmentation
-    transform_module = getattr(import_module("dataset"), args.augmentation)  # default: BaseAugmentation
-    transform = transform_module(
-        resize=args.resize,
-        mean=dataset.mean,
-        std=dataset.std,
-    )
-    dataset.set_transform(transform)
+    # 5-fold Stratified KFold 5개의 fold를 형성하고 5번 Cross Validation을 진행합니다.
+    n_splits = 5
+    skf = StratifiedKFold(n_splits=n_splits)
 
-    # -- data_loader
-    train_set, val_set = dataset.split_dataset(args.sampler)
-    sampler = dataset.train_weight
-
-    train_loader = DataLoader(
-        train_set,
-        batch_size=args.batch_size,
-        num_workers=multiprocessing.cpu_count() // 2,
-        shuffle=(dataset.train_weight == None),
-        pin_memory=use_cuda,
-        drop_last=True,
-        sampler=dataset.train_weight,
-    )
-
-    val_loader = DataLoader(
-        val_set,
-        batch_size=args.valid_batch_size,
-        num_workers=multiprocessing.cpu_count() // 2,
-        shuffle=False,
-        pin_memory=use_cuda,
-        drop_last=True,
-    )
-
-    # -- model
-    model = BaseModel(
-        num_classes=num_classes,
-        model = args.model
-    ).to(device)
-    model = torch.nn.DataParallel(model)
-
-    # -- loss & metric
-    criterion = create_criterion(args.criterion)  # default: cross_entropy
-    opt_module = getattr(import_module("torch.optim"), args.optimizer)  # default: SGD
-    optimizer = opt_module(
-        filter(lambda p: p.requires_grad, model.parameters()),
-        lr=args.lr,
-        weight_decay=1e-4
-    )
-    scheduler = StepLR(optimizer, args.lr_decay_step, gamma=0.5)
-    ################################################################################
-    # 바꿔볼 꺼
-    #scheduler = CosineAnnealingLR(optimier, T_max=10, eta_min=0)
-    #scheduler = ReduceLROnPlateau(optimizer, 'min')
-    ################################################################################
-
-    wandb.watch(model)
-     
-    # -- logging
-    logger = SummaryWriter(log_dir=save_dir)
-    with open(os.path.join(save_dir, 'config.json'), 'w', encoding='utf-8') as f:
-        json.dump(vars(args), f, ensure_ascii=False, indent=4)
-
+    counter = 0
+    patience = 10
+    accumulation_steps = 2
     best_val_acc = 0
     best_val_loss = np.inf
-    best_val_f1 = 0
-    
-    for epoch in range(args.epochs):
-        # train loop
-        model.train()
-        loss_value = 0
-        matches = 0
-        for idx, train_batch in enumerate(train_loader):
-            inputs, labels = train_batch
-            inputs = inputs.to(device)
-            labels = labels.to(device)
 
-            optimizer.zero_grad()
+    labels = [dataset.encode_multi_class(mask, gender, age) for mask, gender, age in zip(dataset.mask_labels, dataset.gender_labels, dataset.age_labels)]
 
-            outs = model(inputs)
-            preds = torch.argmax(outs, dim=-1)
-            loss = criterion(outs, labels)
+    for i, (train_idx, valid_idx) in enumerate(skf.split(dataset.image_paths, labels)):
+        
+        ## wandb 설정
+        wandb.init(
+                project=f'{args.wandbproject}',
+                entity=f'{args.wandbentity}',
+                name = wandbname
+            )
+        wandb.config.update(args)
 
-            loss.backward()
-            optimizer.step()
+        transform_module = getattr(import_module("dataset"), 'BaseAugmentation')
+        transform = transform_module(
+            resize=args.resize,
+            mean=dataset.mean,
+            std=dataset.std,
+        )
+        dataset.set_transform(transform)
+        _, val_loader = getDataloader(dataset, train_idx, valid_idx, args.batch_size, multiprocessing.cpu_count() // 2)
 
-            loss_value += loss.item()
-            matches += (preds == labels).sum().item()
-            if (idx + 1) % args.log_interval == 0:
-                train_loss = loss_value / args.log_interval
-                train_acc = matches / args.batch_size / args.log_interval
-                current_lr = get_lr(optimizer)
-                print(
-                    f"Epoch[{epoch}/{args.epochs}]({idx + 1}/{len(train_loader)}) || "
-                    f"training loss {train_loss:4.4} || training accuracy {train_acc:4.2%} || lr {current_lr}"
-                )
-                logger.add_scalar("Train/loss", train_loss, epoch * len(train_loader) + idx)
-                logger.add_scalar("Train/accuracy", train_acc, epoch * len(train_loader) + idx)
+        dataset = copy(dataset)
+        transform_module = getattr(import_module("dataset"), args.augmentation)  # default: BaseAugmentation
+        transform = transform_module(
+            resize=args.resize,
+            mean=dataset.mean,
+            std=dataset.std,
+        )
+        dataset.set_transform(transform)
+        train_loader, _ = getDataloader(dataset, train_idx, valid_idx, args.batch_size, multiprocessing.cpu_count() // 2)
+        
+        
+        sampler = dataset.train_weight
 
-                ### WandB ###
-                wandb.log({
-                "Train Accuracy": train_acc,
-                "Train Loss": train_loss})
-                
-                loss_value = 0
-                matches = 0
+        # -- model
+        model = BaseModel(
+                num_classes=num_classes,
+                model = args.model
+                ).to(device)
+        model = torch.nn.DataParallel(model)
 
-        scheduler.step()
+        # -- loss & metric
+        criterion = create_criterion(args.criterion)  # default: cross_entropy
+        opt_module = getattr(import_module("torch.optim"), args.optimizer)
+        optimizer = opt_module(
+            filter(lambda p: p.requires_grad, model.parameters()),
+            lr=args.lr,
+            weight_decay=1e-4
+        )
+        
+        scheduler = StepLR(optimizer, args.lr_decay_step, gamma=0.5)
 
-        # val loop
-        with torch.no_grad():
-            print("Calculating validation results...")
-            model.eval()
-            val_loss_items = []
-            val_acc_items = []
-            figure = None
-            
-            targets = []
-            predictions = []
-            
-            for val_batch in val_loader:
-                inputs, labels = val_batch
+        # -- logging
+        logger = SummaryWriter(log_dir=save_dir)
+        with open(os.path.join(save_dir, 'config.json'), 'w', encoding='utf-8') as f:
+            json.dump(vars(args), f, ensure_ascii=False, indent=4)
+        
+        best_val_acc = 0
+        best_val_loss = np.inf
+        best_val_f1 = 0
+
+        for epoch in range(args.epochs):
+            # train loop
+            model.train()
+            loss_value = 0
+            matches = 0
+            for idx, train_batch in enumerate(train_loader):
+                inputs, labels = train_batch
                 inputs = inputs.to(device)
                 labels = labels.to(device)
 
-                outs = model(inputs)
-                preds = torch.argmax(outs, dim=-1)
+                optimizer.zero_grad()
                 
-                targets += labels.tolist()
-                predictions += preds.tolist()
-                
-                loss_item = criterion(outs, labels).item()
-                acc_item = (labels == preds).sum().item()
-                val_loss_items.append(loss_item)
-                val_acc_items.append(acc_item)
+                # cutmix
+                if np.random.random()>0.3:
+                    lam = np.random.beta(0.5, 1.0)
+                    rand_index = torch.randperm(inputs.size()[0]).to(device)
+                    target_a = labels
+                    target_b = labels[rand_index]
+                    bbx1, bby1, bbx2, bby2 = rand_bbox(inputs.size(), lam)
+                    inputs[:, :, bbx1:bbx2, bby1:bby2] = inputs[rand_index, :, bbx1:bbx2, bby1:bby2]
+                    lam = 1 - ((bbx2 - bbx1) * (bby2 - bby1) / (inputs.size()[-1] * inputs.size()[-2]))
+                    outs = model(inputs)
+                    preds = torch.argmax(outs, dim=-1)
+                    loss = criterion(outs, target_a) * lam + criterion(outs, target_b) * (1. - lam)
+                else:
+                    outs = model(inputs)
+                    preds = torch.argmax(outs, dim=-1)
+                    loss = criterion(outs, labels)
 
-                if figure is None:
-                    inputs_np = torch.clone(inputs).detach().cpu().permute(0, 2, 3, 1).numpy()
-                    inputs_np = dataset_module.denormalize_image(inputs_np, dataset.mean, dataset.std)
-                    figure = grid_image(
-                        inputs_np, labels, preds, n=16, shuffle=args.dataset != "MaskSplitByProfileDataset", task = args.task
+                loss.backward()
+                optimizer.step()
+
+                loss_value += loss.item()
+                matches += (preds == labels).sum().item()
+                if (idx + 1) % args.log_interval == 0:
+                    train_loss = loss_value / args.log_interval
+                    train_acc = matches / args.batch_size / args.log_interval
+                    current_lr = get_lr(optimizer)
+                    print(
+                        f"Epoch[{epoch}/{args.epochs}]({idx + 1}/{len(train_loader)}) || "
+                        f"training loss {train_loss:4.4} || training accuracy {train_acc:4.2%} || lr {current_lr}"
                     )
+                    logger.add_scalar("Train/loss", train_loss, epoch * len(train_loader) + idx)
+                    logger.add_scalar("Train/accuracy", train_acc, epoch * len(train_loader) + idx)
 
-            val_loss = np.sum(val_loss_items) / len(val_loader)
-            val_acc = accuracy_score(targets, predictions)
-            val_f1 = f1_score(targets, predictions, average='macro')
-            best_val_loss = min(best_val_loss, val_loss)
-            best_val_acc = max(best_val_acc, val_acc)
+                    ### WandB ###
+                    wandb.log({
+                    "Train Accuracy": train_acc,
+                    "Train Loss": train_loss})
 
-            if val_f1 > best_val_f1:
-                print(f"New best model for val macro-f1 : {val_f1:4.2%}! saving the best model..")
-                torch.save(model.module.state_dict(), f"{save_dir}/best.pth")
-                best_val_f1 = val_f1
-            torch.save(model.module.state_dict(), f"{save_dir}/last.pth")
-                
-            print(
-                f"[Val] acc : {val_acc:4.2%}, loss: {val_loss:4.2}, macro-f1: {val_f1:4.2} || "
-                f"best acc : {best_val_acc:4.2%}, best loss: {best_val_loss:4.2}, best macro-f1: {best_val_f1:4.2}"
-            )
-            logger.add_scalar("Val/loss", val_loss, epoch)
-            logger.add_scalar("Val/accuracy", val_acc, epoch)
-            logger.add_figure("results", figure, epoch)
-            print()
-            
-            wandb.log({
-            "Val Accuracy": val_acc,
-            "Val Loss": val_loss,
-            "F1 score": val_f1,
-            "Pred Figure": [wandb.Image(figure, caption="Val Pred")]
-            })    
-            print()
-            
-    wandb.log({
-        "Best Val Acc" : best_val_acc,
-        "Best Val loss" : best_val_loss,
-        "Best F1 score" : best_val_f1
-        })
-    wandb.finish()
+                    loss_value = 0
+                    matches = 0
+
+            scheduler.step()
+
+            # val loop
+            with torch.no_grad():
+                print("Calculating validation results...")
+                model.eval()
+                val_loss_items = []
+                val_acc_items = []
+                figure = None
+
+                targets = []
+                predictions = []
+
+                for val_batch in val_loader:
+                    inputs, labels = val_batch
+                    inputs = inputs.to(device)
+                    labels = labels.to(device)
+
+                    outs = model(inputs)
+                    preds = torch.argmax(outs, dim=-1)
+
+                    targets += labels.tolist()
+                    predictions += preds.tolist()
+
+                    loss_item = criterion(outs, labels).item()
+                    acc_item = (labels == preds).sum().item()
+                    val_loss_items.append(loss_item)
+                    val_acc_items.append(acc_item)
+
+                    if figure is None:
+                        inputs_np = torch.clone(inputs).detach().cpu().permute(0, 2, 3, 1).numpy()
+                        inputs_np = dataset_module.denormalize_image(inputs_np, dataset.mean, dataset.std)
+                        figure = grid_image(
+                            inputs_np, labels, preds, n=16, shuffle=args.dataset != "MaskSplitByProfileDataset", task = args.task
+                        )
+
+                val_loss = np.sum(val_loss_items) / len(val_loader)
+                val_acc = accuracy_score(targets, predictions)
+                val_f1 = f1_score(targets, predictions, average='macro')
+                best_val_loss = min(best_val_loss, val_loss)
+                best_val_acc = max(best_val_acc, val_acc)
+
+                print(classification_report(targets, predictions))
+
+                if val_f1 > best_val_f1:
+                    print(f"New best model for val macro-f1 : {val_f1:4.2%}! saving the best model..")
+                    torch.save(model.module.state_dict(), f"{save_dir}/{i}_best.ckpt")
+                    best_val_f1 = val_f1
+
+                print(
+                    f"[Val] acc : {val_acc:4.2%}, loss: {val_loss:4.2}, macro-f1: {val_f1:4.2} || "
+                    f"best acc : {best_val_acc:4.2%}, best loss: {best_val_loss:4.2}, best macro-f1: {best_val_f1:4.2}"
+                )
+                logger.add_scalar("Val/loss", val_loss, epoch)
+                logger.add_scalar("Val/accuracy", val_acc, epoch)
+                logger.add_figure("results", figure, epoch)
+                print()
+
+                wandb.log({
+                "Val Accuracy": val_acc,
+                "Val Loss": val_loss,
+                "F1 score": val_f1,
+                "Pred Figure": [wandb.Image(figure, caption="Val Pred")]
+                })    
+                print()
+
+        wandb.log({
+            "Best Val Acc" : best_val_acc,
+            "Best Val loss" : best_val_loss,
+            "Best F1 score" : best_val_f1
+            })
+        wandb.finish()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -312,7 +369,7 @@ if __name__ == '__main__':
     # Data and model checkpoints directories
     parser.add_argument('--seed', type=int, default=42, help='random seed (default: 777)')
     parser.add_argument('--epochs', type=int, default=1, help='number of epochs to train (default: 1)')
-    parser.add_argument('--dataset', type=str, default='TotaTasklDataset', help='dataset augmentation type (default: TotalDataset)')
+    parser.add_argument('--dataset', type=str, default='TotalTaskDataset', help='dataset augmentation type (default: TotalDataset)')
     parser.add_argument('--augmentation', type=str, default='BaseAugmentation', help='data augmentation type (default: BaseAugmentation)')
     parser.add_argument("--resize", nargs="+", type=list, default=[96, 128], help='resize size for image when training')
     parser.add_argument('--batch_size', type=int, default=64, help='input batch size for training (default: 64)')
@@ -324,7 +381,6 @@ if __name__ == '__main__':
     parser.add_argument('--criterion', type=str, default='cross_entropy', help='criterion type (default: cross_entropy)')
     parser.add_argument('--lr_decay_step', type=int, default=20, help='learning rate scheduler deacy step (default: 20)')
     parser.add_argument('--log_interval', type=int, default=20, help='how many batches to wait before logging training status')
-#     parser.add_argument('--name', default='exp', help='model save at {SM_MODEL_DIR}/{name}')
     parser.add_argument("--task", type=str, default='total',help='Tensorboard options: total, age, mask, gender (default: total)')
     parser.add_argument("--sampler", type=str, default='no',help='DataLoader sampler type (default: no)')
     # Container environment
