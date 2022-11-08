@@ -21,24 +21,24 @@ COVID-19의 확산으로 전 세계 사람들의 활동에 많은 제약이 발�
 ## 데이터셋 구조
     | Class | Mask | Gender | Age |
     |:---:|:---:|:---:|:---:|
-    | 0 | Wear | Male | <30 |
-    | 1 | Wear | Male | ≥30 and <60 |
-    | 2 | Wear | Male | ≥60 |
-    | 3 | Wear | Female | <30 |
-    | 4 | Wear | Female | ≥30 and <60 |
-    | 5 | Wear | Female | ≥60 |
-    | 6 | Incorrect | Male | <30 |
-    | 7 | Incorrect | Male | ≥30 and <60 |
-    | 8 | Incorrect | Male | ≥60 |
-    | 9 | Incorrect | Female | <30 |
-    | 10 | Incorrect | Female | ≥30 and <60 |
-    | 11 | Incorrect | Female | ≥60 |
-    | 12 | Not Wear | Male | <30 |
-    | 13 | Not Wear | Male | ≥30 and <60 |
-    | 14 | Not Wear | Male | ≥60 |
-    | 15 | Not Wear | Female | <30 |
-    | 16 | Not Wear | Female | ≥30 and <60 |
-    | 17 | Not Wear | Female | ≥60 |
+    | 0 | Wear | Male | <30 
+    | 1 | Wear | Male | ≥30 and <60 
+    | 2 | Wear | Male | ≥60 
+    | 3 | Wear | Female | <30 
+    | 4 | Wear | Female | ≥30 and <60 
+    | 5 | Wear | Female | ≥60 
+    | 6 | Incorrect | Male | <30 
+    | 7 | Incorrect | Male | ≥30 and <60 
+    | 8 | Incorrect | Male | ≥60 
+    | 9 | Incorrect | Female | <30 
+    | 10 | Incorrect | Female | ≥30 and <60 
+    | 11 | Incorrect | Female | ≥60 
+    | 12 | Not Wear | Male | <30 
+    | 13 | Not Wear | Male | ≥30 and <60 
+    | 14 | Not Wear | Male | ≥60 
+    | 15 | Not Wear | Female | <30 
+    | 16 | Not Wear | Female | ≥30 and <60 
+    | 17 | Not Wear | Female | ≥60 
 
 # 파이프라인
 
