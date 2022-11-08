@@ -43,8 +43,8 @@ COVID-19의 확산으로 전 세계 사람들의 활동에 많은 제약이 발�
 
 
 # 파이프라인
+![앙상블_model_flow](https://user-images.githubusercontent.com/75835117/200537576-5ef1ad23-fa5d-45c1-8b09-10a95101a60b.jpg)
 
-![앙상블_model_flow.jpg](https://s3-us-west-2.amazonaws.com/secure.notion-static.com/a2c5cf6f-6a86-4edc-a551-f40951bebd48/%E1%84%8B%E1%85%A1%E1%86%BC%E1%84%89%E1%85%A1%E1%86%BC%E1%84%87%E1%85%B3%E1%86%AF_model_flow.jpg)
 
 # Requirements
 
