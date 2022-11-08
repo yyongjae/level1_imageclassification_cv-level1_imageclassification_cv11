@@ -8,6 +8,7 @@
 | 3  | 백우열 | <a href="https://github.com/wooyeolBaek">wooyeolBaek</a> | [![logo](https://img.shields.io/badge/Mail-dwybaek7@gmail.com-D14836?style=flat&logo=gmail&logoColor=white)](mailto:dwybaek7@gmail.com) | Age task
 | 4  | 조용재 | <a href="https://github.com/yyongjae">yyongjae</a> | [![logo](https://img.shields.io/badge/Mail-dydwo706@gmail.com-D14836?style=flat&logo=gmail&logoColor=white)](mailto:dydwo706@gmail.com) | Gender task
 
+
 # 대회 설명(문제)
 
 COVID-19의 확산으로 전 세계 사람들의 활동에 많은 제약이 발생 했습니다.
@@ -39,6 +40,7 @@ COVID-19의 확산으로 전 세계 사람들의 활동에 많은 제약이 발�
 | 15 | Not Wear | Female | <30 |
 | 16 | Not Wear | Female | ≥30 and <60 | 
 | 17 | Not Wear | Female | ≥60 |
+
 
 # 파이프라인
 
@@ -82,6 +84,7 @@ wandb==0.13.5
 Training 기록을 저장하기 위해 `./model/` 경로에 폴더를 생성합니다.
 
 Cross validation마다 가장 높은 macro-f1 score를 기록한 모델이 위에서 만든 폴더에 `.ckpt` 파일로 저장됩니다.
+
 
 ## 3. Inference
 
