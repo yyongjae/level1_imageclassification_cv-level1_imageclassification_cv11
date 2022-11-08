@@ -19,26 +19,26 @@ COVID-19의 확산으로 전 세계 사람들의 활동에 많은 제약이 발�
 부스트캠프 Level_1 stage 강의 동안 배운 내용을 바탕으로 image classification을 위한 모델 설계, 학습을 진행하고, 그 결과에 따른 순위를 산정하는 방식으로 진행되었습니다.
 
 ## 데이터셋 구조
-    | Class | Mask | Gender | Age |
-    |:--:|:--:|:--:|:----:|
-    | 0 | Wear | Male | <30 
-    | 1 | Wear | Male | ≥30 and <60 
-    | 2 | Wear | Male | ≥60 
-    | 3 | Wear | Female | <30 
-    | 4 | Wear | Female | ≥30 and <60 
-    | 5 | Wear | Female | ≥60 
-    | 6 | Incorrect | Male | <30 
-    | 7 | Incorrect | Male | ≥30 and <60 
-    | 8 | Incorrect | Male | ≥60 
-    | 9 | Incorrect | Female | <30 
-    | 10 | Incorrect | Female | ≥30 and <60 
-    | 11 | Incorrect | Female | ≥60 
-    | 12 | Not Wear | Male | <30 
-    | 13 | Not Wear | Male | ≥30 and <60 
-    | 14 | Not Wear | Male | ≥60 
-    | 15 | Not Wear | Female | <30 
-    | 16 | Not Wear | Female | ≥30 and <60 
-    | 17 | Not Wear | Female | ≥60 
+| Class | Mask | Gender | Age |
+|:---:|:---:|:---:|:----:|
+| 0 | Wear | Male | <30 | 
+| 1 | Wear | Male | ≥30 and <60 | 
+| 2 | Wear | Male | ≥60  |
+| 3 | Wear | Female | <30 |
+| 4 | Wear | Female | ≥30 and <60 | 
+| 5 | Wear | Female | ≥60 |
+| 6 | Incorrect | Male | <30 |
+| 7 | Incorrect | Male | ≥30 and <60 | 
+| 8 | Incorrect | Male | ≥60 |
+| 9 | Incorrect | Female | <30 |
+| 10 | Incorrect | Female | ≥30 and <60 | 
+| 11 | Incorrect | Female | ≥60 |
+| 12 | Not Wear | Male | <30 |
+| 13 | Not Wear | Male | ≥30 and <60 | 
+| 14 | Not Wear | Male | ≥60 |
+| 15 | Not Wear | Female | <30 |
+| 16 | Not Wear | Female | ≥30 and <60 | 
+| 17 | Not Wear | Female | ≥60 |
 
 # 파이프라인
 
