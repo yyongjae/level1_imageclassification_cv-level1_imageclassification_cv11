@@ -1,7 +1,7 @@
 # boostcamp lv1 image classification competition 1
 
 ### 팀원
-| 인덱스 |  이름 | 깃허브 | 이메일 | 역할 |
+| index |  name | github | email | Task |
 |:--:|:----:|:----:|:----:|:----:|
 | 1  | 김지훈 | <a href="https://github.com/kzh3010">kzh3010</a> | [![logo](https://img.shields.io/badge/Mail-kzh3010@gmail.com-D14836?style=flat&logo=gmail&logoColor=white)](mailto:kzh3010@gmail.com) | Multi label
 | 2  | 원준식 | <a href="https://github.com/JSJSWON">JSJSWON</a> | [![logo](https://img.shields.io/badge/Mail-jswonjswon@gmail.com-D14836?style=flat&logo=gmail&logoColor=white)](mailto:jswonjswon@gmail.com) | Mask task, Multi label
@@ -96,8 +96,9 @@ Cross validation마다 가장 높은 macro-f1 score를 기록한 모델이 위�
 Training에서 만든 `.ckpt` 파일들을 불러와 inference를 진행합니다.
 
 # 환경
-
-*코드 공유: github*
-*서버: AI Stage V100*
-*정리: 노션, google docs*
-*사용 도구: Python3, Pytorch, WandB, Tensorboard, JupyterLab, Visual Studio Code*
+```
+코드 공유: **github**
+서버: **AI Stage V100**
+정리: 노션, **google docs**
+사용 도구: **Python3, Pytorch, WandB, Tensorboard, JupyterLab, Visual Studio Code**
+```
